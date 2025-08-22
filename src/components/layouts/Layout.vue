@@ -3,8 +3,8 @@
 </script>
 
 <template>
-    <header class="text-gradient">
-    <h1 class="text-gradient">Push-Pull-Legs</h1>
+    <header class="">
+    <h1 class="">Push-Pull-Legs</h1>
     </header>
     <main>
         <slot/>
@@ -20,11 +20,24 @@
     </template>
 
 <style scoped>
+    header {
+        color: rgb(97, 5, 131);
+    }
+
     header, footer, main {
         padding: 1rem;
         width: 100%;
         max-width: 600px;
         margin: 0 auto;
+    }
+
+    h1 {
+        font-size: 2rem;
+        text-align: center;
+        margin-bottom: 1rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.1rem;
     }
 
     main {

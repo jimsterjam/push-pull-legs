@@ -7,11 +7,10 @@
 <template>
   <section id="welcome">
     <div class="benefits">
-        <h2>Complete this program<br/>if you want ...</h2>
+        <h2>Workout for everyday<br/>if you want ...</h2>
         <div class="">
-            <p>✅ Follow a simple program with proven results. </p>
-            <p>✅ Get fit, healthy, strong and absolutely shredded. </p>
-            <p>✅ Learn more about gym training and technique.</p>
+            <p>✅ This way you can do 6 sessions per week </p>
+            <p>✅ Get strong and absolutely shredded. </p>
         </div>
         <div>
             <h3>The Training Plan</h3>
@@ -20,9 +19,10 @@
                 <h5><i>Push &rarr; Pull &rarr; Legs &rarr; Repeat</i></h5>
         </div>
         <div class="card challenge">
-            <h3>🔥 Your Challenge</h3>
-            <p>Complete all the workouts and track your progress along the way!</p>
-            <button @click=" () => handleChangeDisplay(2) ">Begin&rarr;</button>
+            <h3>🔥 Start here 🔥</h3>
+            <p>Ready to go workouts!</p>
+            <p>Easy to adjust!</p>
+            <button @click=" () => handleChangeDisplay(2) ">Let's go&rarr;</button>
         </div>
     </div>
   </section>
