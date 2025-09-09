@@ -1,5 +1,6 @@
 <script setup>
     import { ref, computed } from 'vue';
+    const emit = defineEmits(['save']);
     import Portal from '../Portal.vue';
     import { exerciseDescriptions, workoutProgram } from '../../utils';
 
@@ -18,13 +19,78 @@
     
     const { workout, warmup } = workoutProgram[selectedWorkout];
     // let selectedExercise = null;
-    let selectedExercise = ref(null);
+        let selectedExercise = ref(null);
+            const exercises = ref([]);
+
+            // Dynamisch über die API laden (deutsche Namen und Beschreibungen)
+            import { onMounted } from 'vue';
+            onMounted(async () => {
+                // Lade Namen
+                const aliasRes = await fetch('https://wger.de/api/v2/exercisealias/?language=1&limit=100');
+                const aliasData = await aliasRes.json();
+                // Lade Beschreibungen
+                const infoRes = await fetch('https://wger.de/api/v2/exerciseinfo/?language=1&limit=100');
+                const infoData = await infoRes.json();
+                // Verbinde die Daten über den Namen und hole die Beschreibung aus translations
+                exercises.value = aliasData.results.map(alias => {
+                    // Finde das passende Info-Objekt, das eine Übersetzung mit gleichem Namen und Sprache 1 (Deutsch) hat
+                    const info = infoData.results.find(i =>
+                        i.translations.some(t => t.name === alias.alias && t.language === 1)
+                    );
+                    // Hole die Übersetzung
+                    const translation = info?.translations.find(t => t.language === 1 && t.name === alias.alias);
+                    return {
+                        id: alias.id,
+                        name: alias.alias,
+                        description: translation?.description || ''
+                    };
+                });
+            });
+        const weightInputError = ref({});
     const exerciseDescription = computed (() => exerciseDescriptions[selectedExercise.value  ] || 'No description available for this exercise.');
 
+    function validateWeightInput(event, key) {
+        const value = event.target.value;
+        if (!/^\d*$/.test(value)) {
+            weightInputError.value[key] = "Please enter digits only.";
+            event.target.value = value.replace(/\D/g, "");
+        } else {
+            weightInputError.value[key] = "";
+        }
+    }
+    
     function handleCloseModal() {
         selectedExercise.value = null
     }
     
+        function handleSaveWorkout() {
+                // Beispiel: UserId und WorkoutType ggf. anpassen!
+                const payload = {
+                    userId: 'demoUser',
+                    date: new Date(),
+                    workoutType: workoutType[selectedWorkout % 3],
+                    exercises: workout.map(w => ({
+                        name: w.name,
+                        sets: w.sets,
+                        reps: w.reps,
+                        weight: data[selectedWorkout][w.name] || 0
+                    }))
+                };
+                fetch('http://localhost:3002/workout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                })
+                .then(res => res.json())
+                .then(result => {
+                    // Optional: Erfolgsmeldung, z.B. console.log(result)
+                    emit('save');
+                })
+                .catch(err => {
+                    // Optional: Fehlerbehandlung
+                    console.error(err);
+                });
+            }
 </script>
 
 <template>
@@ -38,6 +104,7 @@
             <button @click="handleCloseModal">Close <i class="fa-solid fa-xmark"></i></button>
         </div>
   </Portal>  
+  <!-- <pre>{{ exercises }}</pre> -->
   <section id="workout-card">
     <div class="plan-card card">
       <div class="plan-card-header">
@@ -55,16 +122,21 @@
         <h6 class="grid-weights">Weights</h6>
         <div class="workout-grid-row" v-for="(w, wIdx) in warmup" :key="wIdx">
             <div class="grid-name">
-                <p>{{ w.name }}</p>
-                <button @click=" () => { 
-                    selectedExercise = w.name 
-                }">
+                <select v-model="w.name" class="exercise-dropdown">
+                    <option v-for="ex in exercises" :key="ex.id" :value="ex.name">{{ ex.name }}</option>
+                </select>
+                <button @click="selectedExercise.value = w.name">
                     <i class="fa-regular fa-circle-question"></i>
                 </button>
             </div>
-            <p>{{ w.sets }}</p>
-            <p>{{ w.reps }}</p>
-            <input class="grid-weights" placeholder="14kg" type="text"/>
+                <select v-model="w.sets" class="sets-dropdown">
+                    <option v-for="n in 100" :key="'sets-' + n" :value="n">{{ n }}</option>
+                </select>
+                <select v-model="w.reps" class="reps-dropdown">
+                    <option v-for="n in 100" :key="'reps-' + n" :value="n">{{ n }}</option>
+                </select>
+            <input class="grid-weights" placeholder="14kg" type="text" @input="event => validateWeightInput(event, 'warmup-' + wIdx)" />
+            <div v-if="weightInputError['warmup-' + wIdx]" class="input-error">{{ weightInputError['warmup-' + wIdx] }}</div>
         </div>
         <div class="workout-grid-line"></div>
         <h4 class="grid-name">Workout</h4>
@@ -73,20 +145,26 @@
         <h6 class="grid-weights">Weights</h6>
         <div class="workout-grid-row" v-for="(w, wIdx) in workout" :key="wIdx">
             <div class="grid-name">
-                <p>{{ w.name }}</p>
+                                <select v-model="w.name" class="exercise-dropdown">
+                                    <option v-for="ex in exercises" :key="ex.id" :value="ex.name">{{ ex.name }}</option>
+                                </select>
                     <button @click="() => {
                         selectedExercise = w.name
                     }">
-                    
                         <i class="fa-regular fa-circle-question"></i>
                     </button>
-                    
             </div>
-            <p>{{ w.sets }}</p>
-            <p>{{ w.reps }}</p>
-            <input v-model="data[selectedWorkout][w.name]" class="grid-weights" placeholder="14kg" type="text"/>
+                <select v-model="w.sets" class="sets-dropdown">
+                    <option v-for="n in 100" :key="'sets-' + n" :value="n">{{ n }}</option>
+                </select>
+                <select v-model="w.reps" class="reps-dropdown">
+                    <option v-for="n in 100" :key="'reps-' + n" :value="n">{{ n }}</option>
+                </select>
+            <input v-model="data[selectedWorkout][w.name]" class="grid-weights" placeholder="14kg" type="text" @input="event => validateWeightInput(event, 'workout-' + wIdx)" />
+            <div v-if="weightInputError['workout-' + wIdx]" class="input-error">{{ weightInputError['workout-' + wIdx] }}</div>
         </div>
     </div>
+        <!-- <div v-if="weightInputError" class="input-error">{{ weightInputError }}</div> -->
     <div class="card workout-btns">
         <button @click="handleSaveWorkout">Save & Exit <i class="fa-solid fa-save"></i></button>
         <button :disabled="!isWorkoutComplete" @click="handleSaveWorkout">Complete <i class="fa-solid fa-check"></i></button>
@@ -189,5 +267,12 @@
 
     .exercise-description button i {
         padding-left: 0.5rem;
+    }
+
+    .input-error {
+        font-size: 0.95rem;
+        color: red;
+        margin-top: 0.5rem;
+        grid-column: span 7;
     }
 </style>

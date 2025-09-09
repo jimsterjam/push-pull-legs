@@ -1,13 +1,36 @@
 <script setup>
   import Welcome from './components/pages/Welcome.vue';
+  import LogoutButton from './components/LogoutButton.vue';
   import Layout from './components/layouts/Layout.vue';
   import Dashboard from './components/pages/Dashboard.vue';
   import Workout from './components/pages/Workout.vue';
 
   import { ref, computed, onMounted } from 'vue';
   import { workoutProgram } from './utils';
+  import { Clerk } from '@clerk/clerk-js';
 
-  
+  const clerk = new Clerk(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
+
+  // Auth-Status zentral verwalten
+  const isSignedIn = ref(false);
+  const isAuthReady = ref(false);
+
+  clerk.load().then(() => {
+    isSignedIn.value = !!clerk.user;
+    clerk.addListener(({ user }) => {
+      isSignedIn.value = !!user;
+    });
+    if (!clerk.user) {
+      setTimeout(() => {
+        const el = document.getElementById('sign-in');
+        if (el) clerk.mountSignIn(el);
+        isAuthReady.value = true;
+      }, 0);
+    } else {
+      isAuthReady.value = true;
+    }
+  });
+
   const defaultData = {}
     for (let workoutIdx in workoutProgram) {
       const workoutData = workoutProgram[workoutIdx];
@@ -27,7 +50,6 @@
     if (!currWorkout) return false;
 
     const isCompleteCheck = Object.values(currWorkout).every(ex => !!ex); // Check if all exercises have a value
-    console.log('ISCOMPLETE: ', isCompleteCheck);
     return isCompleteCheck;
   }); 
 
@@ -36,9 +58,6 @@
     if(!allWorkouts) {
         return -1;
       }
-    
-    // loop over key value pair and check if completed
-
     for (const [index, workout] of Object.entries(allWorkouts)) {
       const isComplete = Object.values(workout).every(ex => !!ex);
       if (!isComplete) {
@@ -58,14 +77,6 @@
     selectedWorkout.value = idx;
   }
 
-  function handleSaveWorkout() {
-    localStorage.setItem('workouts', JSON.stringify(data.value));
-
-    selectedDisplay.value = 2; // Default to Welcome page
-
-    selectedWorkout.value = -1; // Deselect a workout
-  }
-
   function handleResetPlan() {
     selectedDisplay.value = 2
     selectedWorkout.value = -1; // Deselect a workout
@@ -74,29 +85,49 @@
   }
   
   onMounted(() => {
-    //console.log('App mounted');
     if (!localStorage) {return}
     if (localStorage.getItem('workouts')) {
       const saveData = JSON.parse(localStorage.getItem('workouts'));
       data.value = saveData || defaultData; // Load saved workouts or use default data
       selectedDisplay.value = 2; // Default to Dashboard page
     }
-    
   });
 
+  function goToDashboard() {
+    selectedDisplay.value = 2; // Dashboard anzeigen
+    selectedWorkout.value = -1; // Workout deselektieren
+  }
 </script>
 
 <template>
+  <header>
+    <LogoutButton :clerk="clerk" v-if="isSignedIn" />
+  </header>
+
   <Layout>
-  <!-- Page1 -->
-    <Welcome :handleChangeDisplay="handleChangeDisplay" v-if="selectedDisplay == 1"/>
-  <!-- Page2 -->
-    <Dashboard :handleResetPlan="handleResetPlan" :firstIncompleteWorkoutIndex="firstIncompleteWorkoutIndex" :handleSelectedWorkout="handleSelectedWorkout" v-if="selectedDisplay == 2"/>
-  <!-- Page3 -->
-    <Workout :handleSaveWorkout="handleSaveWorkout" :isWorkoutComplete="isWorkoutComplete" :data="data" :selectedWorkout="selectedWorkout" v-if="workoutProgram?.[selectedWorkout]"/>
+    <!-- Clerk Login Widget, wenn nicht eingeloggt -->
+    <div v-if="!isSignedIn">
+      <div id="sign-in"></div>
+    </div>
+    <!-- App-Seiten nur wenn eingeloggt -->
+    <template v-else>
+      <Welcome
+        :handleChangeDisplay="handleChangeDisplay"
+        v-if="selectedDisplay == 1"
+      />
+      <Dashboard
+        :handleResetPlan="handleResetPlan"
+        :firstIncompleteWorkoutIndex="firstIncompleteWorkoutIndex"
+        :handleSelectedWorkout="handleSelectedWorkout"
+        v-if="selectedDisplay == 2"
+      />
+      <Workout
+        @save="goToDashboard"
+        :isWorkoutComplete="isWorkoutComplete"
+        :data="data"
+        :selectedWorkout="selectedWorkout"
+        v-if="workoutProgram?.[selectedWorkout]"
+      />
+    </template>
   </Layout>
 </template>
-
-<style scoped>
-
-</style>
